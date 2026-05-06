@@ -11,6 +11,7 @@
 ## Table of Contents
 - [What is AlignCode?](#what-is-aligncode)
 - [Why This Project Exists](#why-this-project-exists)
+- [Quick Start](#quick-start)
 - [The Pipeline](#the-pipeline)
 - [Annotation Engine](#annotation-engine)
 - [Reward Model Training](#reward-model-training)
@@ -20,6 +21,7 @@
 - [Tech Stack](#tech-stack)
 - [Setup & Running](#setup--running)
 - [Dataset](#dataset)
+- [Troubleshooting](#troubleshooting)
 - [Roadmap & Future Work](#roadmap--future-work)
 - [License](#license)
 
@@ -31,7 +33,7 @@ AlignCode is a complete, locally-run RLHF (Reinforcement Learning from Human Fee
 
 Most people studying RLHF read about it. AlignCode **implements it** — every stage, end to end:
 
-1. **Collect** structured human preference data on AI-generated code
+1. **Collect** structured human preference data on AI-generated code (~4 min per annotation)
 2. **Train** a reward model that learns what "good code" means
 3. **Fine-tune** a code LLM using those preferences (DPO)
 4. **Measure** the improvement with a live evaluation dashboard
@@ -52,22 +54,37 @@ AlignCode demonstrates that full pipeline end to end:
 
 ---
 
+## Quick Start
+
+Just want to try the annotation engine? Three commands:
+
+```bash
+# 1. Install and start Ollama, then pull the model
+ollama pull qwen2.5-coder:7b
+
+# 2. Install dependencies (expect ~5–10 min for torch + transformers)
+pip install -r requirements.txt
+
+# 3. Launch the annotation UI
+cd annotation_engine && streamlit run app.py
+```
+
+For the full pipeline (reward model training + DPO fine-tuning), see [Setup & Running](#setup--running).
+
+---
+
 ## The Pipeline
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        AlignCode Pipeline                        │
-│                                                                  │
-│   Annotation          Reward            DPO                      │
-│   Engine         →    Model         →   Fine-tuning     →        │
-│   ──────────          Training          ──────────               │
-│   (Streamlit UI)      ──────────        (Qwen2.5-Coder)         │
-│                       (CodeBERT)             ↓                   │
-│                                         Evaluation               │
-│                                         Dashboard                │
-│                                         ──────────               │
-│                                         (before vs after)        │
-└──────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         AlignCode Pipeline                          │
+│                                                                     │
+│   Annotation        Reward Model        DPO              Evaluation │
+│   Engine        →   Training        →   Fine-tuning  →   Dashboard  │
+│   ──────────        ──────────          ──────────        ────────  │
+│   (Streamlit UI)    (CodeBERT)          (Qwen2.5-Coder)  (before   │
+│                                                           vs after) │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -75,7 +92,7 @@ AlignCode demonstrates that full pipeline end to end:
 ## Annotation Engine
 
 ### What it does
-A Streamlit app that generates two AI code solutions to the same problem using different prompting strategies, then lets you systematically evaluate and compare them.
+A Streamlit app that generates two AI code solutions to the same problem using different prompting strategies, then lets you systematically evaluate and compare them. Each annotation takes ~4 minutes on average.
 
 ### How solutions are generated
 Both solutions come from the same local Ollama model but with different system prompts:
@@ -154,7 +171,7 @@ After your evaluation, click "Show AI Critique" — the same local model compare
 
 ### Problem Bank
 
-22 hand-selected problems across three languages and three difficulty levels:
+22 hand-selected problems across two languages (Python and Go) and three difficulty levels. JavaScript problems are included in the problem bank for annotation but are not yet part of the published preference dataset.
 
 **Python (10 problems)**
 - Easy: find duplicates, palindrome check, word frequency, FizzBuzz, reverse string
@@ -166,12 +183,12 @@ After your evaluation, click "Show AI Critique" — the same local model compare
 - Medium: concurrent worker pool, HTTP server with timeout, JSON API handler, file reader with error handling
 - Hard: rate limiter with goroutines, context-aware pipeline
 
-**JavaScript (4 problems)**
+**JavaScript (4 problems — annotation only, not in published dataset)**
 - Medium: debounce function, async fetch with retry, event emitter, promise chain
 
 ### Output — Preference Dataset
 
-Each completed evaluation takes ~4 minutes on average and is saved as:
+Each completed evaluation is saved as:
 
 ```json
 {
@@ -335,7 +352,7 @@ AlignCode/
 │
 ├── data/
 │   ├── evaluations.jsonl           # Raw preference pairs
-│   └── dataset_stats.md            # Coverage and quality metrics
+│   └── dataset_stats.md            # Coverage and quality metrics per language/difficulty
 │
 ├── portfolio/
 │   ├── sample_evaluations/         # 20 hand-picked annotated pairs (reviewable without running the pipeline)
@@ -362,32 +379,40 @@ AlignCode/
 | Storage | JSONL → HuggingFace datasets |
 | Language | Python + Go problem domain |
 
+**Key dependencies:** `torch`, `transformers`, `trl`, `peft`, `streamlit`, `datasets`, `ollama`
+
 ---
 
 ## Setup & Running
 
 ### Prerequisites
-```bash
-# Install Ollama
-brew install ollama
 
-# Pull the code model
-ollama pull qwen2.5-coder:7b
-```
+- Python 3.10+
+- [Ollama](https://ollama.ai/) installed and running (see Quick Start)
+- ~15GB free disk space (model weights + dependencies)
 
-> **Hardware note (MacBook Pro M4 16GB):** The training scripts are optimized for Apple Silicon via PyTorch MPS (Metal Performance Shaders), but are fully compatible with NVIDIA GPUs (CUDA). 
-> - **Annotation (qwen2.5-coder:7b)** uses ~5GB RAM via Ollama.
-> - **Reward Model Training** uses ~2-4GB RAM and runs very efficiently on the M4.
-> - **DPO Fine-Tuning** targets the 1.5B model specifically so it comfortably fits within a 16GB unified memory ceiling without swapping (~8-12GB RAM used).
-> 
-> Python 3.10+ is recommended. To verify M4 GPU support after installing dependencies, run: `python -c "import torch; print(torch.backends.mps.is_available())"`.
+> **Hardware note (MacBook Pro M4 16GB):** Training scripts are optimized for Apple Silicon via PyTorch MPS, but are fully compatible with NVIDIA GPUs (CUDA).
+>
+> | Stage | RAM Usage | Time |
+> |---|---|---|
+> | Annotation (qwen2.5-coder:7b via Ollama) | ~5GB | real-time |
+> | Reward Model Training | ~2–4GB | ~30 min |
+> | DPO Fine-Tuning (Qwen2.5-Coder 1.5B) | ~8–12GB | ~2 hours |
+>
+> To verify MPS is available after installing dependencies:
+> ```bash
+> python -c "import torch; print(torch.backends.mps.is_available())"
+> ```
 
 ### Installation
+
 ```bash
 git clone https://github.com/your-username/aligncode
 cd aligncode
 python -m venv venv
 source venv/bin/activate
+
+# Note: first install takes 5–10 min due to torch + transformers
 pip install -r requirements.txt
 ```
 
@@ -421,21 +446,22 @@ streamlit run dashboard.py
 
 The preference dataset collected during this project is published on HuggingFace:
 
-**[rajan/aligncode-preference-dataset](https://huggingface.co/datasets/rajan/aligncode-preference-dataset)** ← update with real URL
+**[rajan/aligncode-preference-dataset](https://huggingface.co/datasets/rajan/aligncode-preference-dataset)**
 
-- 127 preference pairs
-- Python (80 pairs) and Go (47 pairs)
+- 127 preference pairs (Python: 80, Go: 47)
 - Easy / Medium / Hard distribution
 - Includes correctness, complexity, security, and idiom scores per pair
 - Go-specific bug annotations (goroutine leaks, error handling, context propagation)
 
 This is one of the few public preference datasets that includes Go — most existing datasets are Python-only.
 
+Coverage and quality metrics are documented in [`data/dataset_stats.md`](data/dataset_stats.md).
+
 ---
 
 ## Annotation Guidelines
 
-My personal rubric for evaluating code pairs is documented in [`portfolio/annotation_guidelines.md`](portfolio/annotation_guidelines.md).
+The personal rubric used for evaluating code pairs is documented in [`portfolio/annotation_guidelines.md`](portfolio/annotation_guidelines.md).
 
 It covers:
 - How to evaluate correctness vs readability tradeoffs
@@ -473,21 +499,43 @@ This project implements each stage of the RLHF pipeline that powers models like 
 
 ---
 
+## Troubleshooting
+
+**`ollama: command not found`**
+Ollama isn't installed or not on your PATH. Follow the [Ollama install guide](https://ollama.ai/) and restart your terminal.
+
+**`torch.backends.mps.is_available()` returns `False`**
+Ensure you're on macOS 12.3+ with Apple Silicon and have installed the MPS-enabled torch build (`torch >= 2.0`). On Intel Macs or Linux, the scripts fall back to CPU automatically.
+
+**Reward model training is very slow**
+Check that MPS or CUDA is being used — if torch falls back to CPU, training will be significantly slower. Run `python -c "import torch; print(torch.device('mps' if torch.backends.mps.is_available() else 'cpu'))"` to confirm.
+
+**DPO training runs out of memory**
+The 1.5B model is sized for 16GB unified memory. If you're on a smaller machine, try reducing `per_device_train_batch_size` to `1` and enabling `gradient_checkpointing=True` in `lora_config.py`.
+
+**Streamlit app doesn't connect to Ollama**
+Make sure Ollama is running in the background (`ollama serve`) before launching the Streamlit app. The annotation engine expects Ollama at `http://localhost:11434` by default.
+
+---
+
 ## Roadmap & Future Work
 
-While the current pipeline proves the viability of local, end-to-end RLHF, future planned improvements include:
-- **Expanding the Problem Bank:** Scaling from 22 to 100+ problems to increase dataset variance.
-- **PPO vs. DPO Comparison:** Implementing a PPO training loop to directly compare policy optimization stability and results against the current DPO implementation.
-- **Multi-turn Evaluation:** Extending the annotation engine to evaluate conversational code refinement rather than just single-turn generation.
+| Priority | Item | Notes |
+|---|---|---|
+| High | Expand problem bank to 100+ problems | Increase dataset variance across more domains |
+| High | Add JavaScript pairs to published dataset | Currently annotated but not exported |
+| Medium | PPO vs. DPO comparison | Implement PPO loop to benchmark stability and quality against DPO |
+| Medium | Multi-turn evaluation | Extend annotation engine to evaluate conversational code refinement |
+| Low | Inter-annotator agreement tooling | Support multiple annotators and measure consistency |
 
 ---
 
 ## Author
 
 **Rajan**
-- GitHub: [github.com/rajan](https://github.com/rajan) ← update with real URL
-- HuggingFace: [huggingface.co/rajan](https://huggingface.co/rajan) ← update with real URL
-- LinkedIn: [linkedin.com/in/rajan](https://linkedin.com/in/rajan) ← update with real URL
+- GitHub: [github.com/rajan0860](https://github.com/rajan0860)
+- HuggingFace: [huggingface.co/rajan0860](https://huggingface.co/rajan0860)
+- LinkedIn: [linkedin.com/in/rajan0860](https://linkedin.com/in/rajan0860)
 
 ---
 

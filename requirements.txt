@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────
+# AlignCode — Python Dependencies
+# Python 3.10+ required
+# ─────────────────────────────────────────────
+
+# ── Core ML / Training ────────────────────────
+# Install torch separately first if on Apple Silicon:
+#   pip install torch torchvision torchaudio
+# For CUDA (NVIDIA): https://pytorch.org/get-started/locally/
+torch>=2.1.0
+torchvision>=0.16.0
+
+# ── HuggingFace Ecosystem ─────────────────────
+transformers==4.40.2          # CodeBERT + tokenizers
+datasets==2.19.1              # Dataset loading + HuggingFace export
+trl==0.8.6                    # DPOTrainer for fine-tuning
+peft==0.10.0                  # LoRA / PEFT adapters
+accelerate==0.29.3            # Multi-device training (MPS / CUDA / CPU)
+huggingface-hub==0.22.2       # Model + dataset push/pull
+
+# ── Annotation UI & Dashboard ─────────────────
+streamlit==1.33.0             # Annotation engine + evaluation dashboard
+streamlit-extras==0.4.2       # Additional Streamlit components
+
+# ── Ollama Client ─────────────────────────────
+ollama==0.2.1                 # Python client for local Ollama API
+
+# ── Data Handling ─────────────────────────────
+pandas==2.2.2                 # Dataframe operations for dataset stats
+numpy==1.26.4                 # Numerical ops
+jsonlines==4.0.0              # JSONL read/write for evaluations.jsonl
+
+# ── Code Execution Sandbox ────────────────────
+psutil==5.9.8                 # Process memory + timeout monitoring
+
+# ── Utilities ─────────────────────────────────
+python-dotenv==1.0.1          # Environment variable management
+uuid==1.30                    # UUID generation for annotation IDs
+tqdm==4.66.2                  # Progress bars for training loops
+scipy==1.13.0                 # Bradley-Terry model stats (reward model)
+
+# ── Dev / Notebook (optional) ─────────────────
+# Uncomment if you want Jupyter support for exploration
+# jupyter==1.0.0
+# ipywidgets==8.1.2
