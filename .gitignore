@@ -1,0 +1,35 @@
+# macOS
+.DS_Store
+
+# Environments
+venv/
+env/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+
+# Streamlit
+.streamlit/
+
+# Model Weights and Checkpoints (Large Files)
+reward_model/model/
+dpo_finetuning/model/
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+
+# HuggingFace & PyTorch Caches
+.cache/
+.triton/
