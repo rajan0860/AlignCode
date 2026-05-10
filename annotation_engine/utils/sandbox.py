@@ -8,16 +8,12 @@ Executes code in an isolated subprocess with:
   - Memory limit monitoring via psutil
   - No network access assumptions (caller responsibility)
   - Captured stdout / stderr
-
-Usage:
-    from annotation_engine.utils.sandbox import run_tests
-
-    results = run_tests(code="def add(a, b): return a + b", test_cases=[...])
 """
 
 import subprocess
 import sys
 import textwrap
+import json
 from dataclasses import dataclass, field
 
 
@@ -43,14 +39,15 @@ class SandboxResult:
     timed_out: bool = False
 
 
-def run_tests(code: str, test_cases: list[dict]) -> SandboxResult:
+def run_tests(code: str, test_cases: list[dict], language: str = "python") -> SandboxResult:
     """
     Execute code against a list of test cases in an isolated subprocess.
 
     Args:
-        code: The Python source code to evaluate.
-        test_cases: List of dicts with keys: "input", "expected", "call".
-                    "call" is a string expression to evaluate after exec(code).
+        code: The source code to evaluate.
+        test_cases: List of dicts. If Python/MBPP, can use "assert" string. 
+                    Otherwise uses "input", "expected", "call".
+        language: "python" or "javascript".
 
     Returns:
         SandboxResult with per-test pass/fail details.
@@ -58,30 +55,69 @@ def run_tests(code: str, test_cases: list[dict]) -> SandboxResult:
     sandbox_result = SandboxResult(total=len(test_cases))
 
     for tc in test_cases:
-        script = textwrap.dedent(f"""
-            {code}
-            result = {tc['call']}
-            print(repr(result))
-        """)
+        if language == "python":
+            if "assert" in tc:
+                script = f"{code}\n{tc['assert']}\n"
+                expected_repr = "No AssertionError"
+                test_input_str = tc["assert"]
+            else:
+                script = textwrap.dedent(f"""
+                    {code}
+                    result = {tc['call']}
+                    print(repr(result))
+                """)
+                expected_repr = repr(tc["expected"])
+                test_input_str = tc["call"]
+                
+            cmd = [sys.executable, "-c", script]
+            
+        elif language == "javascript":
+            if "assert" in tc:
+                # Basic assert polyfill for JS
+                script = f"{code}\nconst assert = require('assert');\n{tc['assert']}\n"
+                expected_repr = "No AssertionError"
+                test_input_str = tc["assert"]
+            else:
+                expected_json = json.dumps(tc["expected"])
+                script = f"""
+                    {code}
+                    const result = {tc['call']};
+                    console.log(JSON.stringify(result));
+                """
+                expected_repr = expected_json
+                test_input_str = tc["call"]
+            
+            cmd = ["node", "-e", script]
+        else:
+            # Unsupported language, fail gracefully
+            sandbox_result.failed += 1
+            sandbox_result.results.append(
+                TestResult(test_input="N/A", expected="N/A", actual="", passed=False, error=f"Unsupported language: {language}")
+            )
+            continue
 
         try:
             proc = subprocess.run(
-                [sys.executable, "-c", script],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=TIMEOUT_SECONDS,
             )
-            actual = proc.stdout.strip()
-            expected = repr(tc["expected"])
-            passed = actual == expected
+            
+            if "assert" in tc:
+                passed = proc.returncode == 0
+                actual_repr = "Passed" if passed else proc.stderr.strip()
+            else:
+                actual_repr = proc.stdout.strip()
+                passed = actual_repr == expected_repr
 
             sandbox_result.results.append(
                 TestResult(
-                    test_input=tc["call"],
-                    expected=expected,
-                    actual=actual,
+                    test_input=test_input_str,
+                    expected=expected_repr,
+                    actual=actual_repr,
                     passed=passed,
-                    error=proc.stderr.strip(),
+                    error=proc.stderr.strip() if not passed else "",
                 )
             )
             if passed:
@@ -94,8 +130,8 @@ def run_tests(code: str, test_cases: list[dict]) -> SandboxResult:
             sandbox_result.failed += 1
             sandbox_result.results.append(
                 TestResult(
-                    test_input=tc["call"],
-                    expected=repr(tc["expected"]),
+                    test_input=test_input_str,
+                    expected=expected_repr,
                     actual="",
                     passed=False,
                     error=f"Timed out after {TIMEOUT_SECONDS}s",

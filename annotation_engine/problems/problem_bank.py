@@ -309,7 +309,9 @@ PROBLEMS: list[dict[str, Any]] = [
             "of fn. The debounced function delays invoking fn until after delay milliseconds have elapsed "
             "since the last invocation."
         ),
-        "test_cases": [],
+        "test_cases": [
+            {"assert": "const assert = require('assert'); assert.strictEqual(typeof debounce(() => {}, 10), 'function');"}
+        ],
     },
     {
         "id": "js_async_fetch_retry",
@@ -320,7 +322,9 @@ PROBLEMS: list[dict[str, Any]] = [
             "Implement `fetchWithRetry(url, options, maxRetries)` in JavaScript that retries a failed "
             "fetch request up to maxRetries times with exponential backoff. Reject after all retries exhausted."
         ),
-        "test_cases": [],
+        "test_cases": [
+            {"assert": "const assert = require('assert'); assert.strictEqual(typeof fetchWithRetry, 'function');"}
+        ],
     },
     {
         "id": "js_event_emitter",
@@ -331,7 +335,9 @@ PROBLEMS: list[dict[str, Any]] = [
             "Implement an `EventEmitter` class in JavaScript with `on(event, listener)`, "
             "`off(event, listener)`, `emit(event, ...args)`, and `once(event, listener)` methods."
         ),
-        "test_cases": [],
+        "test_cases": [
+            {"assert": "const assert = require('assert'); const e = new EventEmitter(); assert.strictEqual(typeof e.on, 'function');"}
+        ],
     },
     {
         "id": "js_promise_chain",
@@ -343,9 +349,24 @@ PROBLEMS: list[dict[str, Any]] = [
             "that return Promises. Run them sequentially (not in parallel) and return a Promise "
             "that resolves with an array of all results."
         ),
-        "test_cases": [],
+        "test_cases": [
+            {"assert": "const assert = require('assert'); assert.strictEqual(typeof runSequential, 'function');"}
+        ],
     },
 ]
+
+# ── Load MBPP Dataset ────────────────────────────────────────────────────────
+import json
+from pathlib import Path
+
+def _load_extended_problems():
+    mbpp_path = Path(__file__).parent / "mbpp_problems.json"
+    if mbpp_path.exists():
+        with open(mbpp_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+PROBLEMS.extend(_load_extended_problems())
 
 
 def get_problems_by_language(language: str) -> list[dict]:
