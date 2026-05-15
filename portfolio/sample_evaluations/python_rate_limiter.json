@@ -1,0 +1,33 @@
+{
+  "id": "sample-003-rate-limiter",
+  "timestamp": "2025-05-06T09:45:00",
+  "problem": "Implement a thread-safe rate limiter in Python using the token bucket algorithm. The class `RateLimiter` should have `__init__(self, rate: int, burst: int)` and `allow(self) -> bool`. `rate` is tokens per second, `burst` is the maximum number of tokens that can be stored.",
+  "language": "python",
+  "model": "qwen2.5-coder:7b",
+  "solution_a": "import time\nimport threading\n\n\nclass RateLimiter:\n    def __init__(self, rate, burst):\n        self.rate = rate\n        self.burst = burst\n        self.tokens = burst\n        self.last = time.monotonic()\n        self.lock = threading.Lock()\n\n    def allow(self):\n        with self.lock:\n            now = time.monotonic()\n            elapsed = now - self.last\n            self.tokens = min(self.burst, self.tokens + elapsed * self.rate)\n            self.last = now\n            if self.tokens >= 1:\n                self.tokens -= 1\n                return True\n            return False",
+  "solution_b": "import time\nimport threading\nfrom typing import Final\n\n\nclass RateLimiter:\n    \"\"\"Thread-safe token bucket rate limiter.\n\n    Args:\n        rate: Number of tokens added per second.\n        burst: Maximum token capacity.\n    \"\"\"\n\n    def __init__(self, rate: int, burst: int) -> None:\n        if rate <= 0 or burst <= 0:\n            raise ValueError(\"rate and burst must be positive integers\")\n        self._rate: Final[int] = rate\n        self._burst: Final[int] = burst\n        self._tokens: float = float(burst)\n        self._last_refill: float = time.monotonic()\n        self._lock = threading.Lock()\n\n    def allow(self) -> bool:\n        \"\"\"Return True if a request is permitted, consuming one token.\"\"\"\n        with self._lock:\n            now = time.monotonic()\n            elapsed = now - self._last_refill\n            self._tokens = min(self._burst, self._tokens + elapsed * self._rate)\n            self._last_refill = now\n\n            if self._tokens >= 1.0:\n                self._tokens -= 1.0\n                return True\n            return False",
+  "test_results": {
+    "solution_a": { "passed": 3, "failed": 1, "total": 4 },
+    "solution_b": { "passed": 4, "failed": 0, "total": 4 }
+  },
+  "scores": {
+    "correctness": [1, 1],
+    "time_complexity": [1, 1],
+    "space_complexity": [1, 1],
+    "readability": [0, 1],
+    "idiomatic_style": [0, 1],
+    "edge_cases": [0, 1],
+    "security": [1, 1]
+  },
+  "bugs_found": {
+    "solution_a": ["Unhandled None/null"],
+    "solution_b": []
+  },
+  "complexity": {
+    "solution_a": { "time": "O(1)", "space": "O(1)", "bottleneck": "lock contention under high concurrency" },
+    "solution_b": { "time": "O(1)", "space": "O(1)", "bottleneck": "lock contention under high concurrency" }
+  },
+  "winner": "B",
+  "justification": "This is a close call — both solutions implement the token bucket algorithm correctly and are thread-safe via threading.Lock. However, B wins on three fronts: (1) input validation with ValueError for non-positive rate/burst, which A skips entirely; (2) type hints and docstrings throughout, making the API self-documenting; (3) use of private attributes with underscore prefix and typing.Final for immutable config. A is functionally correct but would require additional documentation and validation before being production-ready.",
+  "ai_critique": "Both solutions correctly implement the token bucket algorithm with thread safety. The key differentiator is robustness: Solution B validates inputs and raises ValueError for invalid arguments, while A would silently accept rate=0 (causing division-like issues in token replenishment) or negative values. B's use of typing.Final for rate and burst is a nice touch that communicates intent. The algorithmic approach is identical — the quality difference is entirely in engineering discipline."
+}

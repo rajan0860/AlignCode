@@ -1,0 +1,33 @@
+{
+  "id": "sample-001-lru-cache",
+  "timestamp": "2025-05-05T10:15:00",
+  "problem": "Implement an LRU (Least Recently Used) cache class `LRUCache` with `__init__(self, capacity: int)`, `get(self, key: int) -> int` (return -1 if missing), and `put(self, key: int, value: int) -> None`. Both operations must be O(1).",
+  "language": "python",
+  "model": "qwen2.5-coder:7b",
+  "solution_a": "class LRUCache:\n    def __init__(self, cap):\n        self.cap = cap\n        self.cache = {}\n        self.order = []\n\n    def get(self, key):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            return self.cache[key]\n        return -1\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n        elif len(self.cache) >= self.cap:\n            old = self.order.pop(0)\n            del self.cache[old]\n        self.cache[key] = value\n        self.order.append(key)",
+  "solution_b": "from collections import OrderedDict\n\n\nclass LRUCache:\n    \"\"\"LRU cache with O(1) get and put operations.\"\"\"\n\n    def __init__(self, capacity: int) -> None:\n        self.capacity = capacity\n        self._cache: OrderedDict[int, int] = OrderedDict()\n\n    def get(self, key: int) -> int:\n        \"\"\"Return value for key, or -1 if not found. Marks key as recently used.\"\"\"\n        if key not in self._cache:\n            return -1\n        self._cache.move_to_end(key)\n        return self._cache[key]\n\n    def put(self, key: int, value: int) -> None:\n        \"\"\"Insert or update key-value pair. Evicts LRU item if at capacity.\"\"\"\n        if key in self._cache:\n            self._cache.move_to_end(key)\n        self._cache[key] = value\n        if len(self._cache) > self.capacity:\n            self._cache.popitem(last=False)",
+  "test_results": {
+    "solution_a": { "passed": 2, "failed": 2, "total": 4 },
+    "solution_b": { "passed": 4, "failed": 0, "total": 4 }
+  },
+  "scores": {
+    "correctness": [0, 1],
+    "time_complexity": [0, 1],
+    "space_complexity": [1, 1],
+    "readability": [0, 1],
+    "idiomatic_style": [0, 1],
+    "edge_cases": [0, 1],
+    "security": [1, 1]
+  },
+  "bugs_found": {
+    "solution_a": ["Off-by-one errors"],
+    "solution_b": []
+  },
+  "complexity": {
+    "solution_a": { "time": "O(n)", "space": "O(n)", "bottleneck": "list.remove() is O(n) per call — violates O(1) requirement" },
+    "solution_b": { "time": "O(1)", "space": "O(n)", "bottleneck": "none — OrderedDict provides O(1) move_to_end" }
+  },
+  "winner": "B",
+  "justification": "Solution B is the clear winner. It correctly uses OrderedDict for O(1) get and put, matching the problem's explicit requirement. Solution A uses a list for ordering which makes both get() and put() O(n) due to list.remove(). B also includes type hints, docstrings, and proper naming conventions. A shadows no variables but lacks any documentation.",
+  "ai_critique": "Both solutions implement the LRU cache correctly in terms of eviction logic, but Solution A fails the O(1) constraint. The list.remove(key) call in A is O(n), making the overall complexity O(n) per operation. Solution B's use of OrderedDict.move_to_end() is O(1) amortized. B is also more Pythonic with type annotations and docstrings."
+}

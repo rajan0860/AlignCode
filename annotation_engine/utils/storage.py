@@ -7,6 +7,19 @@ Each line in evaluations.jsonl is a complete JSON object representing
 one annotated preference pair. This format is directly compatible with
 HuggingFace datasets.
 
+Schema supports both single-turn and multi-turn evaluations:
+  - Single-turn: standard fields (solution_a, solution_b, scores, winner, etc.)
+  - Multi-turn: adds an optional "turns" list containing refinement history:
+      "turns": [
+          {
+              "turn": 1,
+              "feedback": "Handle the None edge case",
+              "refined_code": "def foo(x): ...",
+              "refined_test_results": {"passed": 4, "failed": 0, "total": 4}
+          }
+      ]
+    Old single-turn records without "turns" remain fully compatible.
+
 Usage:
     from annotation_engine.utils.storage import save_evaluation, load_evaluations
 

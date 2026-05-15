@@ -335,7 +335,8 @@ AlignCode/
 │   │   ├── storage.py              # Save / load JSONL
 │   │   └── export.py               # HuggingFace-compatible export
 │   └── problems/
-│       └── problem_bank.py         # 22 problems, Python + Go + JS
+│       ├── problem_bank.py         # 22 hand-selected + 80 MBPP-imported problems
+│       └── mbpp_problems.json      # Auto-imported from HuggingFace MBPP dataset
 │
 ├── reward_model/
 │   ├── train.py                    # Reward model training script
@@ -345,10 +346,15 @@ AlignCode/
 ├── dpo_finetuning/
 │   ├── train_dpo.py                # DPO training with TRL
 │   ├── lora_config.py              # LoRA hyperparameters
-│   └── model/                      # Fine-tuned model weights
+│   └── model/                      # DPO fine-tuned model weights
+│
+├── ppo_finetuning/
+│   ├── train_ppo.py                # PPO training with TRL
+│   ├── ppo_config.py               # PPO + LoRA hyperparameters
+│   └── model/                      # PPO fine-tuned model weights
 │
 ├── evaluation_dashboard/
-│   └── dashboard.py                # Before vs after comparison UI
+│   └── dashboard.py                # Base vs DPO vs PPO comparison UI
 │
 ├── data/
 │   ├── evaluations.jsonl           # Raw preference pairs
@@ -360,6 +366,10 @@ AlignCode/
 │   │   ├── go_worker_pool.json
 │   │   └── python_rate_limiter.json
 │   └── annotation_guidelines.md   # Personal evaluation rubric
+│
+├── scripts/
+│   ├── import_dataset.py           # Import MBPP problems from HuggingFace
+│   └── push_dataset.py             # Push dataset to HuggingFace Hub
 │
 ├── requirements.txt
 └── README.md
@@ -432,6 +442,12 @@ python train.py --data ../data/evaluations.jsonl
 ```bash
 cd dpo_finetuning
 python train_dpo.py --data ../data/evaluations.jsonl
+```
+
+### PPO Fine-Tuning
+```bash
+cd ppo_finetuning
+python train_ppo.py --data ../data/evaluations.jsonl --steps 100
 ```
 
 ### Run the Evaluation Dashboard

@@ -84,3 +84,34 @@ def check_ollama_connection(model: str = "qwen2.5-coder:7b") -> bool:
         return True
     except Exception:
         return False
+
+
+def refine_solution(
+    problem: str,
+    original_code: str,
+    feedback: str,
+    model: str = "qwen2.5-coder:7b",
+) -> str:
+    """
+    Send a multi-turn conversation to refine an existing solution based on feedback.
+
+    Args:
+        problem: The original problem statement.
+        original_code: The code the model generated in the first turn.
+        feedback: The human annotator's feedback on what to fix/improve.
+        model: Ollama model name to use.
+
+    Returns:
+        Refined code as a string.
+    """
+    response = ollama.chat(
+        model=model,
+        messages=[
+            {"role": "system", "content": PRODUCTION_SYSTEM_PROMPT},
+            {"role": "user", "content": problem},
+            {"role": "assistant", "content": original_code},
+            {"role": "user", "content": f"Please revise the solution based on this feedback:\n{feedback}"},
+        ],
+    )
+    return response["message"]["content"]
+

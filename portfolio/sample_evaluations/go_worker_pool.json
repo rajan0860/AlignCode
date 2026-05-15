@@ -1,0 +1,33 @@
+{
+  "id": "sample-002-worker-pool",
+  "timestamp": "2025-05-05T11:30:00",
+  "problem": "Implement a concurrent worker pool in Go. `NewPool(workers int) *Pool` creates a pool. `Submit(job func())` adds a job. `Shutdown()` waits for all jobs to complete and stops workers. No goroutine leaks allowed.",
+  "language": "go",
+  "model": "qwen2.5-coder:7b",
+  "solution_a": "package pool\n\nimport \"sync\"\n\ntype Pool struct {\n\tjobs chan func()\n\twg   sync.WaitGroup\n}\n\nfunc NewPool(workers int) *Pool {\n\tp := &Pool{jobs: make(chan func())}\n\tfor i := 0; i < workers; i++ {\n\t\tgo func() {\n\t\t\tfor job := range p.jobs {\n\t\t\t\tjob()\n\t\t\t}\n\t\t}()\n\t}\n\treturn p\n}\n\nfunc (p *Pool) Submit(job func()) {\n\tp.jobs <- job\n}\n\nfunc (p *Pool) Shutdown() {\n\tclose(p.jobs)\n}",
+  "solution_b": "package pool\n\nimport \"sync\"\n\n// Pool manages a fixed set of worker goroutines.\ntype Pool struct {\n\tjobs chan func()\n\twg   sync.WaitGroup\n}\n\n// NewPool creates a worker pool with the given number of workers.\nfunc NewPool(workers int) *Pool {\n\tp := &Pool{\n\t\tjobs: make(chan func(), workers*2),\n\t}\n\tfor i := 0; i < workers; i++ {\n\t\tp.wg.Add(1)\n\t\tgo func() {\n\t\t\tdefer p.wg.Done()\n\t\t\tfor job := range p.jobs {\n\t\t\t\tjob()\n\t\t\t}\n\t\t}()\n\t}\n\treturn p\n}\n\n// Submit adds a job to the pool. Blocks if the job buffer is full.\nfunc (p *Pool) Submit(job func()) {\n\tp.jobs <- job\n}\n\n// Shutdown closes the job channel and waits for all workers to finish.\nfunc (p *Pool) Shutdown() {\n\tclose(p.jobs)\n\tp.wg.Wait()\n}",
+  "test_results": {
+    "solution_a": { "passed": 2, "failed": 2, "total": 4 },
+    "solution_b": { "passed": 4, "failed": 0, "total": 4 }
+  },
+  "scores": {
+    "correctness": [0, 1],
+    "time_complexity": [1, 1],
+    "space_complexity": [1, 1],
+    "readability": [0, 1],
+    "idiomatic_style": [0, 1],
+    "edge_cases": [0, 1],
+    "security": [1, 1]
+  },
+  "bugs_found": {
+    "solution_a": ["Goroutine leak", "Missing defer"],
+    "solution_b": []
+  },
+  "complexity": {
+    "solution_a": { "time": "O(n)", "space": "O(1)", "bottleneck": "none" },
+    "solution_b": { "time": "O(n)", "space": "O(n)", "bottleneck": "buffered channel of size workers*2" }
+  },
+  "winner": "B",
+  "justification": "Solution B correctly uses sync.WaitGroup to track goroutine lifecycle. Shutdown() calls wg.Wait() ensuring all jobs complete before returning — critical for graceful shutdown. Solution A's Shutdown() only closes the channel but never waits, meaning the caller has no guarantee that jobs have finished. A also leaks goroutines because there's no WaitGroup to signal completion. B uses defer wg.Done() which is idiomatic Go for cleanup. B also buffers the channel (workers*2) to reduce blocking on Submit().",
+  "ai_critique": "Solution A has a critical goroutine leak: after Shutdown() returns, workers may still be running. Without sync.WaitGroup, the caller cannot know when all jobs are done. Solution B handles this correctly with wg.Add(1) before each goroutine and defer wg.Done() inside. B's buffered channel is also a practical improvement — it prevents Submit() from blocking when workers are briefly busy."
+}

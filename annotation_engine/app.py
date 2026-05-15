@@ -9,7 +9,7 @@ import uuid
 import streamlit as st
 
 from problems.problem_bank import PROBLEMS
-from services.ollama_service import generate_solution, get_ai_critique
+from services.ollama_service import generate_solution, get_ai_critique, refine_solution
 from utils.sandbox import run_tests
 from utils.storage import save_evaluation
 
@@ -32,6 +32,7 @@ def init_session_state():
         st.session_state.test_results_b = None
         st.session_state.ai_critique = None
         st.session_state.generation_complete = False
+        st.session_state.turns = []
 
 
 def clear_session_state():
@@ -41,6 +42,7 @@ def clear_session_state():
     st.session_state.test_results_b = None
     st.session_state.ai_critique = None
     st.session_state.generation_complete = False
+    st.session_state.turns = []
 
 
 def main():
@@ -48,7 +50,10 @@ def main():
     st.title("AlignCode — Annotation Engine")
     init_session_state()
 
-    # Sidebar: Problem Selection
+    # Sidebar: Annotator & Problem Selection
+    st.sidebar.header("Annotator")
+    annotator_id = st.sidebar.text_input("Your Name / ID", value="default")
+    st.sidebar.divider()
     st.sidebar.header("Problem Selection")
     languages = sorted(list(set(p["language"] for p in PROBLEMS)))
     selected_lang = st.sidebar.selectbox("Language", languages, on_change=clear_session_state)
@@ -141,6 +146,7 @@ def main():
                     record = {
                         "id": str(uuid.uuid4()),
                         "timestamp": datetime.datetime.utcnow().isoformat(),
+                        "annotator_id": annotator_id,
                         "problem": problem["statement"],
                         "language": problem["language"],
                         "model": "qwen2.5-coder:7b",
@@ -169,7 +175,8 @@ def main():
                         },
                         "winner": winner,
                         "justification": justification,
-                        "ai_critique": st.session_state.ai_critique or ""
+                        "ai_critique": st.session_state.ai_critique or "",
+                        "turns": st.session_state.turns,
                     }
                     save_evaluation(record)
                     st.success("Evaluation saved successfully!")
@@ -184,6 +191,55 @@ def main():
                 )
         if st.session_state.ai_critique:
             st.info(st.session_state.ai_critique)
+
+        # Multi-Turn Refinement
+        st.divider()
+        st.header("Refine Solution (Multi-Turn)")
+        st.caption("Provide feedback to have the model improve one of its solutions.")
+
+        refine_target = st.radio("Which solution to refine?", ["A", "B"], horizontal=True, key="refine_target")
+        feedback_text = st.text_area("Your feedback (e.g., 'Handle the None edge case')", key="feedback_text")
+
+        if st.button("Generate Refinement"):
+            if not feedback_text.strip():
+                st.error("Please provide feedback before requesting a refinement.")
+            else:
+                original = st.session_state.solution_a if refine_target == "A" else st.session_state.solution_b
+                with st.spinner(f"Refining Solution {refine_target}..."):
+                    refined_code = refine_solution(
+                        problem["statement"],
+                        original,
+                        feedback_text,
+                    )
+                refined_tests = run_tests(refined_code, problem["test_cases"], language=problem["language"])
+
+                turn_record = {
+                    "turn": len(st.session_state.turns) + 1,
+                    "target": refine_target,
+                    "feedback": feedback_text,
+                    "refined_code": refined_code,
+                    "refined_test_results": {
+                        "passed": refined_tests.passed,
+                        "failed": refined_tests.failed,
+                        "total": refined_tests.total,
+                    },
+                }
+                st.session_state.turns.append(turn_record)
+
+                st.subheader(f"Refined Solution {refine_target} (Turn {turn_record['turn']})")
+                st.code(refined_code, language=problem["language"])
+                st.metric("Tests Passed", f"{refined_tests.passed}/{refined_tests.total}")
+
+        # Show refinement history
+        if st.session_state.turns:
+            with st.expander(f"Refinement History ({len(st.session_state.turns)} turn(s))"):
+                for t in st.session_state.turns:
+                    st.markdown(f"**Turn {t['turn']}** — Refined Solution {t['target']}")
+                    st.markdown(f"*Feedback:* {t['feedback']}")
+                    st.code(t["refined_code"], language=problem["language"])
+                    tr = t["refined_test_results"]
+                    st.markdown(f"Tests: {tr['passed']}/{tr['total']} passed")
+                    st.divider()
 
 
 if __name__ == "__main__":
